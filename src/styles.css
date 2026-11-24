@@ -170,6 +170,19 @@ input, select {
 .delta { font: 700 13px var(--mono); margin-top: 2px; }
 .delta.faster { color: var(--green); }
 .delta.slower { color: var(--yellow); }
+.pit-line {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px;
+  padding: 7px 10px; border-radius: 8px; font-size: 14px;
+  border: 1px solid var(--line); color: var(--muted);
+}
+.pit-line b { color: var(--text, inherit); }
+.pit-line.active { background: var(--st-pit-bg); color: var(--blue); border-color: transparent; font-size: 15px; }
+.pit-line.active b { color: var(--blue); }
+.pit-row td { background: var(--st-pit-bg); }
+.big-pit {
+  background: var(--st-pit-bg); color: var(--blue); border-radius: 1.5vmin; padding: 1vmin 3vmin;
+  font: 900 clamp(20px, 5vmin, 70px)/1.2 var(--mono); text-align: center;
+}
 .live-delta { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
 .live-delta .delta { font-size: 18px; }
 

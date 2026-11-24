@@ -13,6 +13,8 @@ export const DEFAULT_SETTINGS = {
   trailSeconds: 30, // longueur du fil d'Ariane
 };
 
+const PIT_MERGE_MS = 5000;
+
 /**
  * @typedef {{lat:number, lon:number, t:number, speed?:number|null, heading?:number|null, acc?:number|null}} GpsPoint
  *   t en millisecondes (epoch ou temps simulé), speed en m/s.
@@ -60,6 +62,8 @@ export class RaceTracker {
     this.rawBelow = null;
     this.alerts = {}; // { stop?: Alert, signal?: Alert }
     this.incidents = [];
+    this.pitStops = []; // arrêts terminés : { number, in, out, duration, lap }
+    this.currentPit = null; // arrêt en cours : { number, in, lap }
     this.#emit();
   }
 
@@ -106,7 +110,13 @@ export class RaceTracker {
     if ((v ?? 0) < this.settings.stopSpeedKmh) this.rawBelow ??= { t: p.t, pos };
     else this.rawBelow = null;
 
+    const wasInPit = this.inPit;
     this.inPit = pointInPolygon(pos, this.circuit?.pit);
+    if (this.inPit !== wasInPit) {
+      // Instant estimé du passage de la limite : milieu entre les deux points (si rapprochés).
+      const tEdge = prev && p.t - prev.t <= this.settings.maxGapS * 1000 ? (prev.t + p.t) / 2 : p.t;
+      this.#onPitChange(tEdge);
+    }
 
     // Perte de signal terminée ?
     if (this.alerts.signal) this.#resolveAlert('signal', p.t);
@@ -191,6 +201,23 @@ export class RaceTracker {
       sectorCross: new Array(nSectors).fill(null),
       pit: this.inPit,
     };
+  }
+
+  // Entrée / sortie de la zone des stands. Une ressortie suivie d'une rentrée
+  // en moins de PIT_MERGE_MS (dérive GPS en bordure de zone) compte comme un seul arrêt.
+  #onPitChange(t) {
+    if (this.inPit) {
+      const last = this.pitStops[this.pitStops.length - 1];
+      if (last && t - last.out < PIT_MERGE_MS) {
+        this.pitStops.pop();
+        this.currentPit = { number: last.number, in: last.in, lap: last.lap };
+      } else {
+        this.currentPit = { number: this.pitStops.length + 1, in: t, lap: this.currentLap?.number ?? 0 };
+      }
+    } else if (this.currentPit) {
+      this.pitStops.push({ ...this.currentPit, out: t, duration: t - this.currentPit.in });
+      this.currentPit = null;
+    }
   }
 
   #detectStop(p, pos) {
@@ -291,6 +318,9 @@ export class RaceTracker {
       needsSound: activeAlerts.some((a) => !a.acknowledged),
       incidents: [...this.incidents],
       stopSince: this.stopSince?.t ?? null,
+      pitStops: this.pitStops.map((s) => ({ ...s })),
+      currentPit: this.currentPit ? { ...this.currentPit } : null,
+      pitTotal: this.pitStops.reduce((sum, s) => sum + s.duration, 0),
     };
   }
 

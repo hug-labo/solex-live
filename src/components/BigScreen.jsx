@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fmtDelta, fmtDuration, fmtLap } from '../lib/format.js';
+import { fmtClock, fmtDelta, fmtDuration, fmtLap } from '../lib/format.js';
 import { STATUS } from './status.js';
 
 // Écran des stands : l'essentiel en très gros, lisible à plusieurs mètres.
@@ -48,6 +48,12 @@ export default function BigScreen({ snapshot, tracker, onClose }) {
             ⚠ {alert.type === 'stop' ? 'ARRÊT EN PISTE' : 'PERTE DE SIGNAL'} — {fmtDuration(now != null ? now - alert.since : null)}
           </div>
         ) : null}
+        {snapshot.currentPit && now != null && (
+          <div className="big-pit">
+            STAND {fmtDuration(Math.max(0, now - snapshot.currentPit.in))}
+            <span className="big-label"> · entrée {fmtClock(snapshot.currentPit.in)}</span>
+          </div>
+        )}
         <div className="big-label">Tour {lap ? lap.number : '—'}</div>
         <div className="big-timer">{fmtLap(elapsed, 1)}</div>
         {liveDelta && (

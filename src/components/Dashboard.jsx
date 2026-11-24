@@ -20,6 +20,8 @@ export default function Dashboard({ snapshot, tracker, sim, simState, circuit, o
         </div>
       </div>
 
+      <PitLine tracker={tracker} snapshot={snapshot} />
+
       {!circuit?.startFinish && (
         <p className="warn">Ce circuit n'a pas de ligne de départ/arrivée : le chronométrage est inactif. Ajoutez-la dans l'éditeur.</p>
       )}
@@ -88,6 +90,8 @@ export default function Dashboard({ snapshot, tracker, sim, simState, circuit, o
           </tbody>
         </table>
       </div>
+
+      <PitStopsCard tracker={tracker} snapshot={snapshot} />
 
       <SimulatorPanel sim={sim} simState={simState} onReset={onReset} />
 
@@ -164,6 +168,100 @@ function LiveLapTimer({ tracker, start }) {
   const now = tracker.clockNow();
   const v = start != null && now != null ? Math.max(0, now - start) : null;
   return <div className="time big">{fmtLap(v, 1)}</div>;
+}
+
+// Rafraîchit le composant toutes les `ms` (chronos qui tournent entre deux points GPS).
+function useTick(ms) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => force((x) => x + 1), ms);
+    return () => clearInterval(id);
+  }, [ms]);
+}
+
+// Bandeau sous l'état : arrêt en cours (chrono + heure d'entrée) ou résumé du dernier arrêt.
+function PitLine({ tracker, snapshot }) {
+  useTick(500);
+  const { currentPit, pitStops, pitTotal } = snapshot;
+  const now = tracker.clockNow();
+  const last = pitStops[pitStops.length - 1];
+  const total = pitTotal + (currentPit && now != null ? Math.max(0, now - currentPit.in) : 0);
+
+  if (currentPit) {
+    return (
+      <div className="pit-line active">
+        <span>
+          ⏱ Arrêt #{currentPit.number} aux stands depuis{' '}
+          <b className="mono">{fmtDuration(now != null ? Math.max(0, now - currentPit.in) : 0)}</b>
+        </span>
+        <span className="small">entrée à <b className="mono">{fmtClock(currentPit.in)}</b> · total stands {fmtDuration(total)}</span>
+      </div>
+    );
+  }
+  if (!last) return null;
+  return (
+    <div className="pit-line">
+      <span>
+        Dernier arrêt : <b className="mono">{fmtClock(last.in)}</b> → <b className="mono">{fmtClock(last.out)}</b>{' '}
+        ({fmtDuration(last.duration)})
+      </span>
+      <span className="small">{pitStops.length} arrêt(s) · total stands {fmtDuration(total)}</span>
+    </div>
+  );
+}
+
+function PitStopsCard({ tracker, snapshot }) {
+  useTick(1000);
+  const { currentPit, pitStops, pitTotal } = snapshot;
+  const now = tracker.clockNow();
+  const curDur = currentPit && now != null ? Math.max(0, now - currentPit.in) : 0;
+  const n = pitStops.length + (currentPit ? 1 : 0);
+  return (
+    <div className="card">
+      <div className="card-title">
+        Arrêts aux stands ({n})
+        <span className="spacer" />
+        {n > 0 && <span className="muted small">total {fmtDuration(pitTotal + curDur)}</span>}
+      </div>
+      {n === 0 ? (
+        <p className="muted small">Aucun passage aux stands.</p>
+      ) : (
+        <div className="scroll">
+          <table className="tbl laps">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Entrée</th>
+                <th>Sortie</th>
+                <th>Durée</th>
+                <th>Tour</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentPit && (
+                <tr className="pit-row">
+                  <td>{currentPit.number}</td>
+                  <td className="mono">{fmtClock(currentPit.in)}</td>
+                  <td><span className="tag pit">en cours</span></td>
+                  <td className="mono strong">{fmtDuration(curDur)}</td>
+                  <td>{currentPit.lap || '—'}</td>
+                </tr>
+              )}
+              {[...pitStops].reverse().map((s) => (
+                <tr key={s.number}>
+                  <td>{s.number}</td>
+                  <td className="mono">{fmtClock(s.in)}</td>
+                  <td className="mono">{fmtClock(s.out)}</td>
+                  <td className="mono strong">{fmtDuration(s.duration)}</td>
+                  <td>{s.lap || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function currentSectors(lap, n) {

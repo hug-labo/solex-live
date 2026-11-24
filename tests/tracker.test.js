@@ -111,3 +111,25 @@ test('le circuit de démo est cohérent', () => {
   assert.equal(c.sectors.length, 2);
   assert.equal(c.pit.length, 4);
 });
+
+test('arrêts aux stands : heure d\'entrée, de sortie, durée et fusion des rebonds', () => {
+  const tr = new RaceTracker(circuit);
+  tr.push(pt(490, 0, 10));
+  tr.push(pt(510, 2, 10)); // entrée estimée à t=1 s
+  let s = tr.getSnapshot();
+  assert.equal(s.currentPit?.number, 1);
+  assert.equal(s.currentPit.in, 1000);
+  tr.push(pt(550, 30, 0));
+  tr.push(pt(610, 32, 10)); // sortie estimée à t=31 s
+  tr.push(pt(590, 34, 5)); // rentrée 3 s après : même arrêt
+  tr.push(pt(620, 36, 10)); // sortie définitive à t=35 s
+  s = tr.getSnapshot();
+  assert.equal(s.currentPit, null);
+  assert.equal(s.pitStops.length, 1);
+  assert.equal(s.pitStops[0].in, 1000);
+  assert.equal(s.pitStops[0].out, 35000);
+  assert.equal(s.pitTotal, 34000);
+  tr.push(pt(800, 60, 10));
+  tr.push(pt(590, 80, 10)); // nouvel arrêt (bien plus tard)
+  assert.equal(tr.getSnapshot().currentPit?.number, 2);
+});
