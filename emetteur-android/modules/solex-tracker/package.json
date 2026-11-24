@@ -1,0 +1,7 @@
+{
+  "name": "solex-tracker",
+  "version": "1.0.0",
+  "description": "Service Android natif : GPS 1 Hz + envoi des points au serveur Solex Live, écran éteint.",
+  "main": "index.js",
+  "private": true
+}

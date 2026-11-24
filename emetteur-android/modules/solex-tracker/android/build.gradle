@@ -1,0 +1,15 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'fr.solexlive'
+version = '1.0.0'
+
+android {
+  namespace "fr.solexlive.tracker"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}

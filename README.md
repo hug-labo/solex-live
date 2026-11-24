@@ -54,6 +54,35 @@ Liens et sécurité :
 - Le lien stand et le lien téléphone permettent d'écrire. Le lien spectateur permet seulement de lire.
 - Chaque équipe a ses propres identifiants aléatoires : les équipes ne voient pas les données des autres.
 
+## Application Android « Solex Émetteur » (recommandée pour le téléphone embarqué)
+
+Le dossier [`emetteur-android/`](emetteur-android) contient une application Android (Expo) qui remplace la page émetteur web. Elle a deux avantages :
+
+- **envoi écran éteint** : un service Android natif (`modules/solex-tracker`, en Kotlin), signalé par la notification « Solex Live — émission en cours », lit le GPS chaque seconde, garde la file d'attente dans un fichier et envoie lui-même les points. Il ne dépend pas de l'écran de l'application. Testé en arrière-plan, écran éteint, en veille profonde (Doze) et pendant une coupure réseau ;
+- **appairage** : on scanne le QR code du PC stand directement depuis l'application.
+
+Elle envoie les points au même serveur, avec la même file d'attente en cas de coupure réseau. Le PC stand et la reprise de course ne changent pas.
+
+**Installation** : copier `solex-emetteur.apk` (à la racine du projet, non envoyé sur GitHub) sur le téléphone (câble USB, Google Drive, e-mail…) et l'ouvrir. Android demande d'autoriser l'installation d'applications « de sources inconnues » pour l'application utilisée (Fichiers, Drive…).
+
+**Réglages au premier lancement** :
+1. localisation **« Toujours autoriser »** et **position exacte** ;
+2. bouton **« Désactiver l'économie de batterie pour l'appli »**, puis **Autoriser** ;
+3. sur certains téléphones (Xiaomi, Huawei, Samsung, Oppo…), autoriser aussi le **démarrage automatique** et le **fonctionnement en arrière-plan** dans les réglages de l'appli. Voir https://dontkillmyapp.com.
+
+**Usage** : Scanner le QR code → Démarrer l'émission → on peut éteindre l'écran. **Ne pas fermer l'application depuis la liste des applis récentes.**
+
+**Reconstruire l'APK** (après une modification) :
+
+```powershell
+cd emetteur-android
+npx expo prebuild --platform android
+cd android
+.\gradlew.bat assembleRelease
+```
+
+L'APK est produit dans `emetteur-android/android/app/build/outputs/apk/release/app-release.apk`.
+
 ## Mise en ligne (GitHub + Render)
 
 1. Envoyer le dossier sur GitHub, sans `node_modules`, `dist`, `.claude` ni `.env.local`.
