@@ -1,0 +1,184 @@
+import { useEffect, useState } from 'react';
+import { fmtClock, fmtDelta, fmtDuration, fmtLap } from '../lib/format.js';
+import SimulatorPanel from './SimulatorPanel.jsx';
+import SettingsPanel from './SettingsPanel.jsx';
+import { STATUS } from './status.js';
+import { exportLapsCsv } from '../lib/storage.js';
+
+export default function Dashboard({ snapshot, tracker, sim, simState, circuit, onReset, onBigScreen, onSettings }) {
+  const st = STATUS[snapshot.status];
+  const nSectors = (circuit?.sectors?.length ?? 0) + 1;
+  const { lastLap, bestLap, bestSectors, currentLap, liveDelta } = snapshot;
+
+  return (
+    <div className="dash">
+      <div className="row status-row">
+        <div className={`status ${st.cls}`}>{st.label}</div>
+        <div className="speed">
+          <span className="speed-val">{snapshot.lastPoint ? Math.round(snapshot.speedKmh) : '–'}</span>
+          <span className="speed-unit">km/h</span>
+        </div>
+      </div>
+
+      {!circuit?.startFinish && (
+        <p className="warn">Ce circuit n'a pas de ligne de départ/arrivée : le chronométrage est inactif. Ajoutez-la dans l'éditeur.</p>
+      )}
+
+      <div className="card current">
+        <div className="card-title">
+          Tour en cours {currentLap ? <b>#{currentLap.number}</b> : <span className="muted">(tour de lancement)</span>}
+          {currentLap?.pit && <span className="tag pit">stand</span>}
+          <span className="spacer" />
+          <button className="small" onClick={onBigScreen} title="Affichage géant pour l'équipe aux stands">⛶ Écran stands</button>
+        </div>
+        <LiveLapTimer tracker={tracker} start={currentLap?.start} />
+        {liveDelta && (
+          <div className="live-delta">
+            <span className={`delta ${liveDelta.delta > 0 ? 'slower' : 'faster'}`}>{fmtDelta(liveDelta.delta)}</span>
+            <span className="muted small">vs meilleur tour, au passage de S{liveDelta.gate + 1}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="grid2">
+        <div className="card">
+          <div className="card-title">Dernier tour</div>
+          <div className="time">{fmtLap(lastLap?.time)}</div>
+          {lastLap && bestLap && lastLap !== bestLap && !lastLap.pit && (
+            <div className={`delta ${lastLap.time - bestLap.time > 0 ? 'slower' : 'faster'}`}>
+              {fmtDelta(lastLap.time - bestLap.time)} vs meilleur
+            </div>
+          )}
+          {lastLap?.pit && <div className="delta muted">tour avec passage aux stands</div>}
+        </div>
+        <div className="card best">
+          <div className="card-title">Meilleur tour</div>
+          <div className="time">{fmtLap(bestLap?.time)}</div>
+          {bestLap && <div className="delta muted">tour #{bestLap.number}</div>}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Secteurs</div>
+        <table className="tbl sectors">
+          <thead>
+            <tr>
+              <th></th>
+              {Array.from({ length: nSectors }, (_, i) => <th key={i}>S{i + 1}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="muted">En cours</td>
+              {currentSectors(currentLap, nSectors).map((v, i) => (
+                <td key={i} className={sectorClass(v, bestSectors[i])}>{v != null ? fmtLap(v) : '·'}</td>
+              ))}
+            </tr>
+            <tr>
+              <td className="muted">Dernier</td>
+              {Array.from({ length: nSectors }, (_, i) => {
+                const v = lastLap?.sectors[i];
+                return <td key={i} className={sectorClass(v, bestSectors[i])}>{fmtLap(v)}</td>;
+              })}
+            </tr>
+            <tr>
+              <td className="muted">Meilleur</td>
+              {bestSectors.map((v, i) => <td key={i} className="best-txt">{fmtLap(v)}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <SimulatorPanel sim={sim} simState={simState} onReset={onReset} />
+
+      <div className="card">
+        <div className="card-title">
+          Tours ({snapshot.laps.length})
+          <span className="spacer" />
+          <button
+            className="small"
+            disabled={!snapshot.laps.length}
+            onClick={() => exportLapsCsv(snapshot.laps, circuit?.name, nSectors)}
+            title="Télécharger les tours (Excel / tableur)"
+          >
+            ⤓ CSV
+          </button>
+        </div>
+        {snapshot.laps.length === 0 ? (
+          <p className="muted small">Aucun tour bouclé pour l'instant.</p>
+        ) : (
+          <div className="scroll">
+            <table className="tbl laps">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Temps</th>
+                  {Array.from({ length: nSectors }, (_, i) => <th key={i}>S{i + 1}</th>)}
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...snapshot.laps].reverse().map((l) => (
+                  <tr key={l.number} className={l === bestLap ? 'best-row' : ''}>
+                    <td>{l.number}</td>
+                    <td className="mono strong">{fmtLap(l.time)}</td>
+                    {l.sectors.map((v, i) => (
+                      <td key={i} className={`mono ${v != null && v === bestSectors[i] ? 'best-txt' : ''}`}>{fmtLap(v)}</td>
+                    ))}
+                    <td>{l.pit && <span className="tag pit">stand</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-title">Incidents ({snapshot.incidents.length})</div>
+        {snapshot.incidents.length === 0 ? (
+          <p className="muted small">Aucun incident.</p>
+        ) : (
+          <ul className="incidents">
+            {snapshot.incidents.map((inc, i) => (
+              <li key={i}>
+                <span className="mono">{fmtClock(inc.since)}</span>{' '}
+                {inc.type === 'stop' ? 'Arrêt en piste' : 'Perte de signal'} — {fmtDuration(inc.duration)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <SettingsPanel settings={snapshot.settings} onChange={onSettings} />
+    </div>
+  );
+}
+
+function LiveLapTimer({ tracker, start }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => force((x) => x + 1), 100);
+    return () => clearInterval(id);
+  }, []);
+  const now = tracker.clockNow();
+  const v = start != null && now != null ? Math.max(0, now - start) : null;
+  return <div className="time big">{fmtLap(v, 1)}</div>;
+}
+
+function currentSectors(lap, n) {
+  const out = new Array(n).fill(null);
+  if (!lap) return out;
+  const bounds = [lap.start, ...lap.sectorCross];
+  for (let i = 0; i < n - 1; i++) {
+    const a = bounds[i], b = bounds[i + 1];
+    if (a != null && b != null && b > a) out[i] = b - a;
+  }
+  return out;
+}
+
+function sectorClass(v, best) {
+  if (v == null || best == null) return 'mono';
+  if (v <= best) return 'mono best-txt';
+  return v - best < 500 ? 'mono near' : 'mono slow';
+}
