@@ -83,7 +83,10 @@ export class RaceTracker {
     return () => this.listeners.delete(fn);
   }
 
+  #silent = false;
+
   #emit() {
+    if (this.#silent) return;
     this.snapshot = this.#buildSnapshot();
     this.listeners.forEach((fn) => fn(this.snapshot));
   }
@@ -136,6 +139,39 @@ export class RaceTracker {
 
     this.lastPoint = { ...p, speedKmh: this.speedKmh };
     this.lastReceivedWall = wallNow;
+    this.#emit();
+  }
+
+  /** Plusieurs points reçus d'un coup (rattrapage réseau) : une seule notification. */
+  pushMany(points, wallNow = Date.now()) {
+    this.#silent = true;
+    try {
+      for (const p of points) this.push(p, wallNow);
+    } finally {
+      this.#silent = false;
+    }
+    this.#emit();
+  }
+
+  /**
+   * Reconstruit toute la session à partir de l'historique des points (reprise sur un autre PC,
+   * circuit modifié…). Les pertes de signal passées sont détectées sur les trous entre points.
+   */
+  replay(points) {
+    this.reset();
+    this.#silent = true;
+    try {
+      for (const p of points) {
+        this.tick(p.t); // trou dans l'historique => perte de signal
+        this.push(p, p.t);
+      }
+    } finally {
+      this.#silent = false;
+    }
+    // Dernier point récent : on le considère comme reçu maintenant (évite une fausse alerte
+    // due à un léger décalage d'horloge entre le téléphone et ce PC).
+    const last = this.lastPoint;
+    if (last && Math.abs(Date.now() - last.t) < 60000) this.lastReceivedWall = Date.now();
     this.#emit();
   }
 

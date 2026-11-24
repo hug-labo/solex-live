@@ -2,10 +2,25 @@ import { useEffect, useState } from 'react';
 import { fmtClock, fmtDelta, fmtDuration, fmtLap } from '../lib/format.js';
 import SimulatorPanel from './SimulatorPanel.jsx';
 import SettingsPanel from './SettingsPanel.jsx';
+import OnlinePanel from './OnlinePanel.jsx';
 import { STATUS } from './status.js';
 import { exportLapsCsv } from '../lib/storage.js';
 
-export default function Dashboard({ snapshot, tracker, sim, simState, circuit, onReset, onBigScreen, onSettings }) {
+export default function Dashboard({
+  snapshot, tracker, sim, simState, circuit, onReset, onBigScreen, onSettings,
+  online, liveStatus, apiKind, onCreateOnline, onJoinOnline, onLeaveOnline,
+}) {
+  const onlinePanel = (
+    <OnlinePanel
+      online={online}
+      status={liveStatus}
+      apiKind={apiKind}
+      circuit={circuit}
+      onCreate={onCreateOnline}
+      onJoin={onJoinOnline}
+      onLeave={onLeaveOnline}
+    />
+  );
   const st = STATUS[snapshot.status];
   const nSectors = (circuit?.sectors?.length ?? 0) + 1;
   const { lastLap, bestLap, bestSectors, currentLap, liveDelta } = snapshot;
@@ -21,6 +36,8 @@ export default function Dashboard({ snapshot, tracker, sim, simState, circuit, o
       </div>
 
       <PitLine tracker={tracker} snapshot={snapshot} />
+
+      {online && onlinePanel}
 
       {!circuit?.startFinish && (
         <p className="warn">Ce circuit n'a pas de ligne de départ/arrivée : le chronométrage est inactif. Ajoutez-la dans l'éditeur.</p>
@@ -93,7 +110,12 @@ export default function Dashboard({ snapshot, tracker, sim, simState, circuit, o
 
       <PitStopsCard tracker={tracker} snapshot={snapshot} />
 
-      <SimulatorPanel sim={sim} simState={simState} onReset={onReset} />
+      {!online && (
+        <>
+          <SimulatorPanel sim={sim} simState={simState} onReset={onReset} />
+          {onlinePanel}
+        </>
+      )}
 
       <div className="card">
         <div className="card-title">

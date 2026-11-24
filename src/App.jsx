@@ -12,10 +12,31 @@ import {
 } from './lib/storage.js';
 import { audioReady, playAlarm, unlockAudio } from './lib/sound.js';
 import { cumulativeLengths, nearestDistanceOnTrack } from './lib/geo.js';
+import { getApi, parseSessionLink } from './lib/api.js';
+import { LiveSource } from './lib/liveSource.js';
 
 function initialCircuits() {
   const saved = loadCircuits();
   return saved.length ? saved : [makeDemoCircuit()];
+}
+
+// Course en ligne : lien ouvert (#s=…&k=…) ou dernière course de ce PC (reprise après fermeture).
+const ONLINE_KEY = 'solex.online';
+function initialOnline() {
+  const link = parseSessionLink();
+  if (link) {
+    history.replaceState(null, '', location.pathname + location.search); // ne pas laisser la clé à l'écran
+    const o = { sid: link.sid, key: link.key };
+    saveOnline(o);
+    return o;
+  }
+  try { return JSON.parse(localStorage.getItem(ONLINE_KEY)); } catch { return null; }
+}
+function saveOnline(o) {
+  try {
+    if (o) localStorage.setItem(ONLINE_KEY, JSON.stringify(o));
+    else localStorage.removeItem(ONLINE_KEY);
+  } catch { /* stockage indisponible */ }
 }
 
 export default function App() {
@@ -69,14 +90,74 @@ export default function App() {
   useEffect(() => { sim.resetState(); }, [sim]); // publie l'état initial du simulateur
   useEffect(() => () => sim.stop(), [sim]);
 
+  // ---------- course en ligne ----------
+  const [online, setOnline] = useState(initialOnline);
+  const [liveStatus, setLiveStatus] = useState(null);
+  const liveRef = useRef(null);
+  const api = getApi();
+
+  useEffect(() => {
+    if (!online) return undefined;
+    sim.stop();
+    const live = new LiveSource(api, online, tracker, {
+      onStatus: setLiveStatus,
+      onSession: (s) => {
+        if (!s.circuit?.id) return;
+        live.circuitId = s.circuit.id;
+        const c = { ...s.circuit };
+        setCircuits((list) => (list.some((x) => x.id === c.id) ? list.map((x) => (x.id === c.id ? c : x)) : [...list, c]));
+        setActiveId(c.id);
+      },
+    });
+    liveRef.current = live;
+    live.start();
+    return () => {
+      live.stop();
+      liveRef.current = null;
+      setLiveStatus(null);
+    };
+  }, [online, api, sim, tracker]);
+
+  const createOnline = useCallback(async (name) => {
+    const { id, writeKey } = await api.createSession(name, circuit);
+    const o = { sid: id, key: writeKey };
+    saveOnline(o);
+    setOnline(o);
+  }, [api, circuit]);
+
+  const joinOnline = useCallback((text) => {
+    const link = parseSessionLink(text);
+    if (!link) return false;
+    const o = { sid: link.sid, key: link.key };
+    saveOnline(o);
+    setOnline(o);
+    return true;
+  }, []);
+
+  const leaveOnline = useCallback(() => {
+    if (!confirm('Quitter la course en ligne sur ce PC ?\nL\'historique reste sur le serveur : gardez le lien stand pour la reprendre.')) return;
+    saveOnline(null);
+    setOnline(null);
+    tracker.reset();
+    sim.resetState();
+  }, [tracker, sim]);
+
   // Le circuit n'est appliqué au suivi qu'en revenant sur l'onglet Live
   // (éditer ne réinitialise pas la session en cours à chaque clic).
+  // En ligne, l'historique est rejoué avec le nouveau circuit et le circuit est partagé.
   const appliedRef = useRef(circuit);
   useEffect(() => {
     if (view !== 'live' || appliedRef.current === circuit) return;
     appliedRef.current = circuit;
     sim.setCircuit(circuit);
     tracker.setCircuit(circuit);
+    const live = liveRef.current;
+    if (live) {
+      live.replay();
+      if (circuit.id === live.circuitId && circuit.updatedAt !== live.circuitStamp) {
+        live.publishCircuit(circuit).catch((e) => alert('Circuit non partagé : ' + e.message));
+      }
+    }
   }, [view, circuit, sim, tracker]);
 
   const resetSession = useCallback(() => {
@@ -137,7 +218,12 @@ export default function App() {
           <button className={view === 'editor' ? 'on' : ''} onClick={() => setView('editor')}>Éditeur de circuit</button>
         </nav>
         <div className="topbar-right">
-          <select value={circuit?.id} onChange={(e) => setActiveId(e.target.value)} title="Circuit actif">
+          <select
+            value={circuit?.id}
+            onChange={(e) => setActiveId(e.target.value)}
+            disabled={!!online}
+            title={online ? 'Circuit de la course en ligne' : 'Circuit actif'}
+          >
             {circuits.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <button
@@ -196,6 +282,12 @@ export default function App() {
               onReset={resetSession}
               onBigScreen={() => setBigScreen(true)}
               onSettings={changeSettings}
+              online={online}
+              liveStatus={liveStatus}
+              apiKind={api.kind}
+              onCreateOnline={createOnline}
+              onJoinOnline={joinOnline}
+              onLeaveOnline={leaveOnline}
             />
           ) : (
             <EditorPanel

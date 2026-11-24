@@ -1,17 +1,19 @@
-# Solex Live — Version 1
+# Solex Live — Version 2
 
-Suivi en direct et chronométrage pour l'endurance Solex. Cette **V1** fonctionne entièrement dans le navigateur, sans serveur ni compte. Elle contient :
+Suivi en direct et chronométrage pour l'endurance Solex (6 h à 24 h).
 
-- la **carte live** (fond satellite ou plan), avec le Solex, sa vitesse, le fil d'Ariane des 30 dernières secondes et l'état (En piste / Aux stands / Arrêté / Alerte) ;
-- l'**éditeur de circuit** : tracé, ligne de départ/arrivée, portes secteur (triées automatiquement dans l'ordre de passage), zone des stands, sauvegarde automatique, export et import JSON ;
-- le **chronométrage automatique**, avec interpolation du franchissement entre deux points GPS : tour en cours, dernier tour, meilleur tour, secteurs et tableau des tours ;
-- les **alertes** : arrêt (< 3 km/h pendant 10 s hors stands) et perte de signal (6 s sans données), avec bandeau clignotant, marqueur sur la carte, alarme sonore répétée et bouton d'acquittement ;
-- l'**écran des stands** (bouton « ⛶ Écran stands ») : plein écran avec chrono géant, écart et meilleur tour, Échap pour quitter ;
-- l'**écart en direct** sur le meilleur tour, à chaque porte franchie ;
-- le **thème « Plein soleil »**, clair et à fort contraste ;
-- les **réglages des alertes** (seuil, délais, fil d'Ariane), modifiables en cours de session ;
-- l'**export CSV** des tours, lisible dans Excel en français ;
-- le **simulateur** : vitesse réglable de 40 à 110 km/h (ralentit dans les virages), accélération du temps ×1 à ×10, panne, passage aux stands, coupure du signal.
+- **Carte live** (fond satellite ou plan) : le Solex, sa vitesse, le fil d'Ariane et l'état (En piste / Aux stands / Arrêté / Alerte).
+- **Chronométrage automatique**, avec interpolation du passage de ligne entre deux points GPS : tour en cours, dernier et meilleur tour, secteurs, tableau des tours, export CSV.
+- **Arrêts aux stands** : heure d'entrée et de sortie, durée et temps total.
+- **Alertes** : arrêt (< 3 km/h pendant 10 s hors stands) et perte de signal, avec bandeau, marqueur, alarme sonore et acquittement.
+- **Écran stands** géant, **thème Plein soleil**, **réglages** des alertes.
+- **Éditeur de circuit** : tracé, ligne d'arrivée, portes secteur, zone des stands, import et export.
+- **Simulateur** intégré pour essayer sans rouler.
+- **V2 — course en ligne** :
+  - **téléphone embarqué** : page émetteur avec GPS, écran maintenu allumé et file d'attente en cas de coupure réseau ;
+  - **appairage par QR code** ;
+  - **historique gardé sur le serveur** : on reprend la course sur n'importe quel PC avec tout l'historique (tours, arrêts, incidents) ;
+  - **isolation par équipe**.
 
 ## Lancer en local
 
@@ -20,36 +22,62 @@ npm install
 npm run dev
 ```
 
-Ouvrir ensuite http://localhost:5173. Commandes utiles :
+Ouvrir ensuite http://localhost:5173. `npm test` lance les tests et `npm run build` produit la version de production dans `dist/`.
 
-- `npm test` : tests du moteur de chrono et d'alertes ;
-- `npm run build` : version de production dans `dist/`, à déployer sur n'importe quel hébergement statique (Vercel, Render Static Site, Netlify, OVH…).
+Sans serveur configuré, la course en ligne fonctionne en **mode test local** : tout reste dans le navigateur, et deux onglets du même navigateur peuvent jouer le stand et le téléphone.
+
+## Mise en place du serveur (Supabase, gratuit) — une seule fois
+
+1. Créer un compte sur [supabase.com](https://supabase.com), puis un projet (nom libre, région Europe, par exemple Paris).
+2. Dans le projet : **SQL Editor → New query**, coller tout le contenu de [`supabase/schema.sql`](supabase/schema.sql), puis **Run**.
+3. Récupérer, dans **Project Settings → API** (ou le bouton **Connect**) :
+   - l'**URL du projet** (`https://xxxx.supabase.co`) ;
+   - la **clé publique** (*publishable key* `sb_publishable_…`, ou l'ancienne clé *anon public*). **Jamais** la clé secrète ou *service_role*.
+4. **Sur votre PC** : copier `.env.example` en `.env.local`, y coller ces deux valeurs, puis relancer `npm run dev`.
+5. **Sur Render** : service → **Environment**, ajouter `VITE_SUPABASE_URL` et `VITE_SUPABASE_KEY`, puis **Manual Deploy**. Les valeurs sont intégrées au site au moment de la construction.
+
+La clé publique peut se trouver dans le site : les tables sont fermées et tout passe par des fonctions qui exigent les identifiants de la course.
+
+## Le jour de la course
+
+1. **PC stand** : onglet Live, choisir le circuit, saisir le nom de l'équipe dans « Course en ligne », puis **Créer**.
+2. **Téléphone embarqué** : scanner le QR code (« 📱 Appairer le téléphone »), ouvrir le lien, puis **Démarrer l'émission**. Autoriser la localisation précise.
+   - Téléphone branché sur une batterie, page ouverte et au premier plan, écran allumé. La page demande elle-même à garder l'écran allumé.
+   - Le bouton « Tester sans rouler » fait rouler un Solex simulé sur le circuit de la course, pour vérifier la liaison depuis le stand.
+3. **Copier le lien stand** et le garder en lieu sûr (SMS, mail à l'équipe…).
+   - PC planté ? On ouvre ce lien sur un autre PC : toute la course est reconstruite en quelques secondes et le suivi continue.
+   - Le même PC rouvert reprend automatiquement la dernière course.
+4. **Lien spectateur** : suivi en lecture seule, pour la famille ou une autre tablette.
+
+Liens et sécurité :
+- Les liens contiennent les identifiants de la course après le `#` : ils ne sont jamais transmis à l'hébergeur.
+- Le lien stand et le lien téléphone permettent d'écrire. Le lien spectateur permet seulement de lire.
+- Chaque équipe a ses propres identifiants aléatoires : les équipes ne voient pas les données des autres.
 
 ## Mise en ligne (GitHub + Render)
 
-1. Créer un dépôt sur GitHub et y envoyer le dossier, **sans** `node_modules` ni `dist` (le `.gitignore` les exclut).
-2. Sur Render : **New → Blueprint**, choisir le dépôt. Le fichier `render.yaml` configure tout. Sinon, **New → Static Site** avec :
-   - Build Command : `npm install && npm run build`
-   - Publish Directory : `dist`
+1. Envoyer le dossier sur GitHub, sans `node_modules`, `dist`, `.claude` ni `.env.local`.
+2. Sur Render : **New → Blueprint**, choisir le dépôt (`render.yaml` configure tout), puis renseigner les deux variables Supabase.
 3. Chaque envoi sur GitHub redéploie automatiquement le site.
 
 ## Organisation du code
 
 | Fichier | Rôle |
 |---|---|
-| `src/lib/tracker.js` | Moteur de suivi : il reçoit les points GPS et calcule tours, secteurs, état et alertes. Il ne dépend ni de React ni de la carte. |
-| `src/lib/simulator.js` | Solex virtuel qui émet des points GPS à 1 Hz. |
-| `src/lib/geo.js` | Géométrie : distances, intersection avec les portes, point dans un polygone. |
-| `src/lib/storage.js` | Sauvegarde des circuits dans le navigateur, import et export. |
-| `src/lib/sound.js` | Alarme sonore générée par Web Audio. |
-| `src/components/` | Interface : carte, tableau de bord, éditeur, bandeau d'alerte. |
+| `src/lib/tracker.js` | Moteur de suivi : il calcule tours, secteurs, arrêts, état et alertes à partir des points GPS. `replay()` reconstruit une course entière (24 h ≈ 86 000 points, environ 0,1 s). |
+| `src/lib/api.js` | Accès au serveur (Supabase) ou mode test local. Gère aussi les liens de course. |
+| `src/lib/liveSource.js` | PC stand : charge l'historique, le rejoue, puis récupère les nouveaux points chaque seconde. |
+| `src/lib/uplink.js` | Téléphone : file d'attente des points, gardée dans le téléphone, envoyée par paquets. |
+| `src/components/Transmitter.jsx` | Page émetteur du téléphone. |
+| `src/components/OnlinePanel.jsx` | Création ou reprise d'une course, QR code et liens. |
+| `src/lib/simulator.js` | Solex virtuel (1 point GPS par seconde). |
+| `src/lib/geo.js` | Géométrie (distances, passage des portes, zone des stands). |
+| `supabase/schema.sql` | Tables et fonctions du serveur. |
 
-## Remarques
+## Limites connues
 
-- **Son** : les navigateurs bloquent le son tant que l'utilisateur n'a pas cliqué sur la page. Cliquer sur « Activer le son » en arrivant aux stands.
-- **Modifications du circuit** : elles s'appliquent au suivi en revenant sur l'onglet Live, et la session en cours est alors remise à zéro.
-- **Tours avec arrêt aux stands** : ils sont marqués « stand » et exclus du meilleur tour.
-
-## Suite prévue (V2)
-
-Page émetteur pour le téléphone embarqué (GPS + Wake Lock), appairage par QR code et relais temps réel (Supabase), avec isolation par équipe. Le simulateur et le téléphone alimenteront le même `RaceTracker.push()`.
+- **iPhone** : la position n'est envoyée que si la page est **au premier plan**, écran allumé. Ne pas verrouiller le téléphone.
+- **Délai d'affichage** : environ 1 à 2 s entre le téléphone et le stand.
+- **Acquittement** : il est propre à chaque écran. Acquitter sur un PC ne coupe pas l'alarme des autres.
+- **Modifications du circuit** en cours de course : elles sont partagées si on a le lien stand, et tous les PC recalculent l'historique avec le nouveau circuit.
+- **À venir** : vue direction de course avec toutes les équipes sur une même carte.

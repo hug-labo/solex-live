@@ -340,3 +340,40 @@ details[open] .chev { transform: rotate(90deg); }
 .lbl-pit { color: #6cb6ff !important; background: transparent !important; font-size: 12px !important; }
 .lbl-alert { background: #ff3b3b !important; }
 .leaflet-container { font: inherit; }
+
+/* ---------- Course en ligne (stand) ---------- */
+.tag.ok { background: var(--st-track-bg); color: var(--green); }
+.tag.bad { background: var(--st-stopped-bg); color: var(--yellow); }
+.online p { margin: 6px 0; }
+.pair { margin: 8px 0; }
+.pair summary { cursor: pointer; font-weight: 700; }
+.pair-body { display: flex; gap: 12px; align-items: flex-start; margin-top: 8px; flex-wrap: wrap; }
+.pair-body p { margin: 0 0 8px; }
+.qr { width: 170px; height: 170px; image-rendering: pixelated; background: #fff; border-radius: 6px; flex: none; }
+.tx-errtxt { color: var(--red); }
+
+/* ---------- Page émetteur (téléphone) ---------- */
+.tx {
+  min-height: 100vh; box-sizing: border-box; max-width: 520px; margin: 0 auto;
+  padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  background: var(--bg); color: var(--text);
+}
+.tx h1 { margin: 0; font-size: 22px; }
+.tx-course { margin: 0; color: var(--muted); }
+.tx-big {
+  width: 100%; padding: 26px 12px; font-size: 22px; font-weight: 900; border-radius: 14px; border: none; cursor: pointer;
+}
+.tx-big.go { background: var(--green); color: #000; }
+.tx-big.stop { background: transparent; border: 2px solid var(--red); color: var(--red); padding: 16px; font-size: 18px; margin-top: auto; }
+.tx-small { width: 100%; padding: 14px; font-size: 16px; border-radius: 10px; }
+.tx-row { display: flex; gap: 10px; }
+.tx-tips { margin: 0; padding-left: 20px; line-height: 1.7; color: var(--muted); }
+.tx-tips b { color: var(--text); }
+.tx-state { text-align: center; font-weight: 900; font-size: 20px; padding: 18px; border-radius: 12px; }
+.tx-state.ok { background: var(--st-track-bg); color: var(--green); }
+.tx-state.bad { background: var(--st-stopped-bg); color: var(--yellow); }
+.tx-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; font-size: 16px; }
+.tx-grid dt { color: var(--muted); }
+.tx-grid dd { margin: 0; font-weight: 600; }
+.tx-err { background: var(--red); color: #fff; padding: 12px; border-radius: 10px; margin: 0; font-weight: 700; }
+.tx-warn { background: var(--st-stopped-bg); color: var(--yellow); padding: 10px; border-radius: 10px; margin: 0; }
